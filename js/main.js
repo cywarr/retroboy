@@ -18,7 +18,7 @@ document.body.appendChild(renderer.domElement);
 let controls = new OrbitControls(camera, renderer.domElement);
 
 let light = new THREE.DirectionalLight(0xffffff, 0.75);
-light.position.setScalar(10);
+light.position.set(10, 10, 0);
 scene.add(light);
 let lightBack = new THREE.DirectionalLight(0xffffff, 0.75);
 lightBack.position.set(-5, -2, -10);
