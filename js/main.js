@@ -9,7 +9,7 @@ import { UnrealBloomPass } from "https://cdn.jsdelivr.net/npm/three@0.121.1/exam
 
 let scene = new THREE.Scene();
 let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 100);
-camera.position.set(7, 12, 7).setLength(15);
+camera.position.set(3.5, 3.5, 7).setLength(15);
 let renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -32,13 +32,15 @@ scene.add(mainContainer);
 
 let logo = textureLogo();
 
-let m = new THREE.MeshStandardMaterial({ color: "silver", roughness: 1, metalness: 0.75, wireframe: false, roughnessMap: logo });
+let m = new THREE.MeshStandardMaterial({ color: "silver", roughness: 1, metalness: 0.75, wireframe: false, roughnessMap: logo});
 //m.extensions = {derivatives: true};
 let uniforms = {
-    globalBloom: { value: 0 }
+    globalBloom: { value: 0 },
+    fontMap: { value: new THREE.TextureLoader().load("./img/font.png") } //https://github.com/otaviogood/shader_fontgen
 }
 m.onBeforeCompile = shader => {
     shader.uniforms.globalBloom = uniforms.globalBloom;
+    shader.uniforms.fontMap = uniforms.fontMap;
     shader.vertexShader = `
   attribute vec3 IColor;
   attribute vec3 center;
@@ -47,6 +49,8 @@ m.onBeforeCompile = shader => {
   attribute float emissionIntensity;
   attribute float canDraw;
   attribute float drawSide;
+  attribute vec2 drawUV;
+  attribute vec2 drawUvShift;
 
   varying vec3 vIColor;
   varying vec3 vCenter;
@@ -55,6 +59,8 @@ m.onBeforeCompile = shader => {
   varying float vEmissionIntensity;
   varying float vCanDraw;
   varying float vDrawSide;
+  varying vec2 vDrawUV;
+  varying vec2 vDrawUvShift;
 
   ${shader.vertexShader}
 `.replace(
@@ -67,12 +73,15 @@ m.onBeforeCompile = shader => {
     vEmissionIntensity = emissionIntensity;
     vCanDraw = canDraw;
     vDrawSide = drawSide;
+    vDrawUV = drawUV;
+    vDrawUvShift = drawUvShift;
 `
     );
     //console.log(shader.vertexShader);
 
     shader.fragmentShader = `
   uniform float globalBloom;
+  uniform sampler2D fontMap;
 
   varying vec3 vIColor;
   varying vec3 vCenter;
@@ -81,11 +90,22 @@ m.onBeforeCompile = shader => {
   varying float vEmissionIntensity;
   varying float vCanDraw;
   varying float vDrawSide;
+  varying vec2 vDrawUV;
+  varying vec2 vDrawUvShift;
 
   ${shader.fragmentShader}
 `.replace(
         `#include <clipping_planes_pars_fragment>`,
         `#include <clipping_planes_pars_fragment>
+
+    // https://www.shadertoy.com/view/4sBfRd
+    #define C(c) U.x-=.5; textFloat+= char(U,64+c)
+
+    vec4 char(vec2 p, int c) 
+    {
+        if (p.x<.0|| p.x>1. || p.y<0.|| p.y>1.) return vec4(0,0,0,1e5);
+        return textureGrad( fontMap, p/16. + fract( vec2(c, 15-c/16) / 16. ), dFdx(p/16.),dFdy(p/16.) );
+    }
     
   float edgeFactorTri() {
     vec3 d = fwidth( vCenter.xyz );
@@ -110,8 +130,20 @@ m.onBeforeCompile = shader => {
 
     gl_FragColor = vec4(color, gl_FragColor.a);
 
-    if (vCanDraw > 0.0 && globalBloom < 0.5 && vDrawSide > 0.5) {
-      //gl_FragColor.rgb += vec3(0.75, 0.5, 0.5);
+    if (vCanDraw > 0.0 && vDrawSide > 0.5) {
+        
+        vec2 mainUV = vDrawUV + vDrawUvShift;
+        
+        vec4 textFloat = vec4(0.0);
+        
+        vec2 textUV = mainUV * vec2(1, 0.75);
+        vec2 textPosition = vec2(0.145,.24);
+        float FontSize = 5.;
+        vec2 U = ( textUV - textPosition)*64.0/FontSize;
+        C(18);C(-32);C(5);C(-32);C(20);C(-32);C(18);C(-32);C(15);C(-32);C(2);C(-32);C(15);C(-32);C(25);
+        vec3 boyColor = (globalBloom < 0.5) ? vec3(1) : vec3(1, 0.25, 1);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, boyColor, textFloat.x);
+
     }
 
 `
@@ -158,7 +190,7 @@ let tetraClrs = [];
 let octaClrs = [];
 
 let colorOuter = new THREE.Color(0xff7f7f);
-let colorInner = new THREE.Color(0xff7fff);
+let colorInner = new THREE.Color(0xff7fb7);
 let colorMidst = new THREE.Color().copy(colorOuter).lerp(colorInner, 0.5);
 
 setInstances(tetrahedra, 4, 3, 0, 0, tetraClrs, colorOuter);
@@ -172,15 +204,31 @@ g.setAttribute("showWire", new THREE.InstancedBufferAttribute(new Float32Array(2
 g.setAttribute("glowIntensity", new THREE.InstancedBufferAttribute(new Float32Array(24).fill(0), 1));
 g.setAttribute("emissionIntensity", new THREE.InstancedBufferAttribute(new Float32Array(24).fill(0), 1));
 g.setAttribute("drawSide", new THREE.InstancedBufferAttribute(new Float32Array([
-    1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0
+    1, 
+    1, 1, 0, 
+    1, 1, 0, 1, 0, 0, 
+    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0
 ]), 1));
+g.setAttribute("drawUvShift", new THREE.InstancedBufferAttribute(new Float32Array([
+    0.375, 0.75 , 
+    0.5 , 0.5  , 0.25  , 0.5  , 0, 0,
+    0.625, 0.25 , 0.375, 0.25 , 0, 0, 0.125, 0.25, 0, 0, 0, 0,
+    0.75 , 0    , 0.5  , 0    , 0, 0, 0.25 , 0   , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]), 2));
 
 gOct.setAttribute("showWire", new THREE.InstancedBufferAttribute(new Float32Array(10).fill(0), 1));
 gOct.setAttribute("glowIntensity", new THREE.InstancedBufferAttribute(new Float32Array(10).fill(0), 1));
 gOct.setAttribute("emissionIntensity", new THREE.InstancedBufferAttribute(new Float32Array(10).fill(0), 1));
 gOct.setAttribute("drawSide", new THREE.InstancedBufferAttribute(new Float32Array([
-    1, 1, 1, 0, 1, 1, 0, 1, 0, 0
+    1, 
+    1, 1, 0, 
+    1, 1, 0, 1, 0, 0
 ]), 1));
+gOct.setAttribute("drawUvShift", new THREE.InstancedBufferAttribute(new Float32Array([
+    0.375, 0.5,
+    0.5, 0.25, 0.25, 0.25, 0, 0,
+    0.625, 0, 0.375, 0, 0, 0, 0.125, 0, 0, 0, 0, 0
+]), 2))
 // ==============================================================================================
 
 // bloom /////////////////////////////////////////////////////////////////////////////////////////
@@ -259,7 +307,7 @@ renderer.setAnimationLoop(() => {
 
     let t = clock.getElapsedTime();
 
-    mainContainer.rotation.y = -t * Math.PI * 0.0625;
+    mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI * 0.25;
 
     uniforms.globalBloom.value = 1;
     renderer.setClearColor(0x000000);
@@ -475,6 +523,19 @@ function Octahedron() {
         0, 0, 0,
         1, 1, 1
     ], 1));
+    g.setAttribute("drawUV", new THREE.Float32BufferAttribute([
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+        0.125, 0, 0.25, 0.25, 0, 0.25
+    ], 2))
+
     return g;
 }
 
@@ -524,7 +585,13 @@ function Tetrahedron() {
         0, 0, 0,
         0, 0, 0,
         1, 1, 1
-    ], 1))
+    ], 1));
+    geom.setAttribute("drawUV", new THREE.Float32BufferAttribute([ // uvs for drawing, we'll shift it with insctancing attribute
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+        0, 0, 0.25, 0, 0.125, 0.25
+    ], 2));
     return geom;
 }
 
