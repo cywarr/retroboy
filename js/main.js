@@ -38,10 +38,12 @@ let logo = textureLogo();
 let m = new THREE.MeshStandardMaterial({ color: 0xb7b7b7, roughness: 1, metalness: 0.75, wireframe: false, roughnessMap: logo});
 let uniforms = {
     globalBloom: { value: 0 },
+    time: { value: 0 },
     fontMap: { value: new THREE.TextureLoader().load("./img/font.png") } //https://github.com/otaviogood/shader_fontgen
 }
 m.onBeforeCompile = shader => {
     shader.uniforms.globalBloom = uniforms.globalBloom;
+    shader.uniforms.time = uniforms.time;
     shader.uniforms.fontMap = uniforms.fontMap;
     shader.vertexShader = `
   attribute vec3 IColor;
@@ -83,6 +85,7 @@ m.onBeforeCompile = shader => {
 
     shader.fragmentShader = `
   uniform float globalBloom;
+  uniform float time;
   uniform sampler2D fontMap;
 
   varying vec3 vIColor;
@@ -99,6 +102,11 @@ m.onBeforeCompile = shader => {
 `.replace(
         `#include <clipping_planes_pars_fragment>`,
         `#include <clipping_planes_pars_fragment>
+
+    // simple random
+    float random(vec2 c) {
+        return fract(sin(dot(c.xy, vec2( 12.9898, 78.233))) * 43758.5453);
+    }
 
     float rectangle(vec2 uv, vec2 pos, vec2 size)
     {
@@ -150,7 +158,11 @@ m.onBeforeCompile = shader => {
         vec2 textPosition = vec2(0.145,.24);
         float FontSize = 5.;
         vec2 U = ( textUV - textPosition )*64.0/FontSize;
-        C(18);C(-32);C(5);C(-32);C(20);C(-32);C(18);C(-32);C(15);C(-32);C(2);C(-32);C(15);C(-32);C(25);
+        C(18);C(-32);C(5);C(-32);
+
+            if (step(1. / 32., rand(vec2(floor(time * 25.), 0))) > 0.) { C(20); } else { C(-32); } // blinking T
+        
+            C(-32);C(18);C(-32);C(15);C(-32);C(2);C(-32);C(15);C(-32);C(25);
         vec3 boyColor = (globalBloom < 0.5) ? vec3(1) : vec3(1, 0.25, 1);
 
         float sealand = 0.;
@@ -162,7 +174,7 @@ m.onBeforeCompile = shader => {
             sealand += rectangle( mainUV, vec2(0.175 + oriX, 0.31 - oriY), vec2(0.65 - (oriX * 2.), 0.0075));
         }
         float sealandGradient = smoothstep(0.31, oriY, mainUV.y);
-        vec3 sealandColorBase = mix(vec3(0, 0.5, 1), vec3(0, 0.5, 0.5), sealandGradient);
+        vec3 sealandColorBase = mix(vec3(0, 0.5, 1), vec3(0, 0.25, 0.25), sealandGradient);
         vec3 sealandColor = (globalBloom < 0.5) ? vec3(1) : sealandColorBase;
 
 
@@ -367,6 +379,8 @@ let clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
 
     let t = clock.getElapsedTime();
+
+    uniforms.time.value = t;
 
     mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI / 6;
 
