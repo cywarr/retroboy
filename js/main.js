@@ -7,6 +7,9 @@ import { RenderPass } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/
 import { ShaderPass } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/postprocessing/UnrealBloomPass.js";
 
+import { CopyShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/shaders/CopyShader.js';
+import { FXAAShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/shaders/FXAAShader.js';
+
 let scene = new THREE.Scene();
 let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 100);
 camera.position.set(3.5, 3.5, 7).setLength(15);
@@ -32,7 +35,7 @@ scene.add(mainContainer);
 
 let logo = textureLogo();
 
-let m = new THREE.MeshStandardMaterial({ color: "silver", roughness: 1, metalness: 0.75, wireframe: false, roughnessMap: logo});
+let m = new THREE.MeshStandardMaterial({ color: 0xb7b7b7, roughness: 1, metalness: 0.75, wireframe: false, roughnessMap: logo});
 let uniforms = {
     globalBloom: { value: 0 },
     fontMap: { value: new THREE.TextureLoader().load("./img/font.png") } //https://github.com/otaviogood/shader_fontgen
@@ -154,12 +157,12 @@ m.onBeforeCompile = shader => {
         float oriX = 0.;
         float oriY = 0.;
         for (int i = 0; i < 9; i++){
-            oriX = float(i) * 0.0153;
-            oriY = float(i) * 0.0250;
-            sealand += rectangle( mainUV, vec2(0.175 + oriX, 0.31 - oriY), vec2(0.65 - (oriX * 2.), 0.005));
+            oriX = float(i) * 0.015;
+            oriY = float(i) * 0.03;
+            sealand += rectangle( mainUV, vec2(0.175 + oriX, 0.31 - oriY), vec2(0.65 - (oriX * 2.), 0.0075));
         }
         float sealandGradient = smoothstep(0.31, oriY, mainUV.y);
-        vec3 sealandColorBase = mix(vec3(0, 0.5, 1), vec3(0, 1, 0.5), sealandGradient);
+        vec3 sealandColorBase = mix(vec3(0, 0.5, 1), vec3(0, 0.5, 0.5), sealandGradient);
         vec3 sealandColor = (globalBloom < 0.5) ? vec3(1) : sealandColorBase;
 
 
@@ -176,11 +179,11 @@ m.onBeforeCompile = shader => {
             float angle =  + arcStart + (stepAngle * float(i));
             float sX = cos(angle) * sunRadius;
             float sY = sin(angle) * sunRadius;
-            sunset += rectangle( mainUV, vec2(0.5, sunYPos) + vec2(-sX, sY), vec2(sX * 2., 0.005));
+            sunset += rectangle( mainUV, vec2(0.5, sunYPos) + vec2(-sX, sY), vec2(sX * 2., 0.0075));
         }
         
         float sunGradient = smoothstep(sunYPos, sunYPos + sunRadius, mainUV.y);
-        vec3 sunsetColorBase = mix(vec3(1, 0.25, 0), vec3(1, 0.75, 0), sunGradient);
+        vec3 sunsetColorBase = mix(vec3(1, 0.25, 0), vec3(0.75, 0.75, 0), sunGradient);
         vec3 sunsetColor = (globalBloom < 0.5) ? vec3(1) : sunsetColorBase;
 
         gl_FragColor.rgb = mix(gl_FragColor.rgb, sunsetColor, sunset);
@@ -273,6 +276,16 @@ gOct.setAttribute("drawUvShift", new THREE.InstancedBufferAttribute(new Float32A
 ]), 2))
 // ==============================================================================================
 
+// fxaa //////////////////////////////////////////////////////////////////////////////////////////
+let fxaaPass = new ShaderPass(FXAAShader);
+
+var pixelRatio = renderer.getPixelRatio();
+
+fxaaPass.material.uniforms['resolution'].value.x = 1 / (innerWidth * pixelRatio);
+fxaaPass.material.uniforms['resolution'].value.y = 1 / (innerHeight * pixelRatio);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 // bloom /////////////////////////////////////////////////////////////////////////////////////////
 var renderScene = new RenderPass(scene, camera);
 var bloomPass = new UnrealBloomPass(
@@ -319,6 +332,7 @@ finalPass.needsSwap = true;
 
 var finalComposer = new EffectComposer(renderer);
 finalComposer.addPass(renderScene);
+finalComposer.addPass(fxaaPass);
 finalComposer.addPass(finalPass);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 window.onresize = function () {
@@ -332,6 +346,11 @@ window.onresize = function () {
 
     bloomComposer.setSize(width, height);
     finalComposer.setSize(width, height);
+
+    let pixelRatio = renderer.getPixelRatio();
+
+    fxaaPass.material.uniforms['resolution'].value.x = 1 / (width * pixelRatio);
+    fxaaPass.material.uniforms['resolution'].value.y = 1 / (height * pixelRatio);
 };
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -349,7 +368,7 @@ renderer.setAnimationLoop(() => {
 
     let t = clock.getElapsedTime();
 
-    mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI * 0.25;
+    mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI / 6;
 
     uniforms.globalBloom.value = 1;
     renderer.setClearColor(0x000000);
