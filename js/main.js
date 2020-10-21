@@ -33,7 +33,6 @@ scene.add(mainContainer);
 let logo = textureLogo();
 
 let m = new THREE.MeshStandardMaterial({ color: "silver", roughness: 1, metalness: 0.75, wireframe: false, roughnessMap: logo});
-//m.extensions = {derivatives: true};
 let uniforms = {
     globalBloom: { value: 0 },
     fontMap: { value: new THREE.TextureLoader().load("./img/font.png") } //https://github.com/otaviogood/shader_fontgen
@@ -98,8 +97,16 @@ m.onBeforeCompile = shader => {
         `#include <clipping_planes_pars_fragment>`,
         `#include <clipping_planes_pars_fragment>
 
+    float rectangle(vec2 uv, vec2 pos, vec2 size)
+    {
+        size *= 0.5;
+        vec2 r = abs(uv - pos - size) - size;
+        return step( max(r.x,r.y),0.0);
+    }
+
     // https://www.shadertoy.com/view/4sBfRd
     #define C(c) U.x-=.5; textFloat+= char(U,64+c)
+    #define degToRad(a) (PI * a) / 180.
 
     vec4 char(vec2 p, int c) 
     {
@@ -107,11 +114,11 @@ m.onBeforeCompile = shader => {
         return textureGrad( fontMap, p/16. + fract( vec2(c, 15-c/16) / 16. ), dFdx(p/16.),dFdy(p/16.) );
     }
     
-  float edgeFactorTri() {
-    vec3 d = fwidth( vCenter.xyz );
-    vec3 a3 = smoothstep( vec3( 0.0 ), d * 1.5, vCenter.xyz );
-    return min( min( a3.x, a3.y ), a3.z );
-  }
+    float edgeFactorTri() {
+        vec3 d = fwidth( vCenter.xyz );
+        vec3 a3 = smoothstep( vec3( 0.0 ), d * 1.5, vCenter.xyz );
+        return min( min( a3.x, a3.y ), a3.z );
+    }
 `
     )
         .replace(
@@ -139,11 +146,46 @@ m.onBeforeCompile = shader => {
         vec2 textUV = mainUV * vec2(1, 0.75);
         vec2 textPosition = vec2(0.145,.24);
         float FontSize = 5.;
-        vec2 U = ( textUV - textPosition)*64.0/FontSize;
+        vec2 U = ( textUV - textPosition )*64.0/FontSize;
         C(18);C(-32);C(5);C(-32);C(20);C(-32);C(18);C(-32);C(15);C(-32);C(2);C(-32);C(15);C(-32);C(25);
         vec3 boyColor = (globalBloom < 0.5) ? vec3(1) : vec3(1, 0.25, 1);
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, boyColor, textFloat.x);
 
+        float sealand = 0.;
+        float oriX = 0.;
+        float oriY = 0.;
+        for (int i = 0; i < 9; i++){
+            oriX = float(i) * 0.0153;
+            oriY = float(i) * 0.0250;
+            sealand += rectangle( mainUV, vec2(0.175 + oriX, 0.31 - oriY), vec2(0.65 - (oriX * 2.), 0.005));
+        }
+        float sealandGradient = smoothstep(0.31, oriY, mainUV.y);
+        vec3 sealandColorBase = mix(vec3(0, 0.5, 1), vec3(0, 1, 0.5), sealandGradient);
+        vec3 sealandColor = (globalBloom < 0.5) ? vec3(1) : sealandColorBase;
+
+
+        float sunset = 0.;
+        float sunRadius = 0.2;
+        float sunYPos = 0.5;
+        int steps = 12;
+
+        float arcStart = degToRad(-18.);
+        float arcFull = PI_HALF - arcStart;
+        
+        float stepAngle = arcFull / float(steps);
+        for(int i = 0; i < steps; i++){
+            float angle =  + arcStart + (stepAngle * float(i));
+            float sX = cos(angle) * sunRadius;
+            float sY = sin(angle) * sunRadius;
+            sunset += rectangle( mainUV, vec2(0.5, sunYPos) + vec2(-sX, sY), vec2(sX * 2., 0.005));
+        }
+        
+        float sunGradient = smoothstep(sunYPos, sunYPos + sunRadius, mainUV.y);
+        vec3 sunsetColorBase = mix(vec3(1, 0.25, 0), vec3(1, 0.75, 0), sunGradient);
+        vec3 sunsetColor = (globalBloom < 0.5) ? vec3(1) : sunsetColorBase;
+
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, sunsetColor, sunset);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, sealandColor, sealand);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, boyColor, textFloat.x);
     }
 
 `
@@ -295,7 +337,7 @@ window.onresize = function () {
 
 
 // run sequences
-console.log(united);
+//console.log(united);
 united.forEach(u => {
     u.sequence();
 });
