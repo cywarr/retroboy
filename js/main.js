@@ -344,8 +344,8 @@ finalPass.needsSwap = true;
 
 var finalComposer = new EffectComposer(renderer);
 finalComposer.addPass(renderScene);
-finalComposer.addPass(fxaaPass);
 finalComposer.addPass(finalPass);
+finalComposer.addPass(fxaaPass);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 window.onresize = function () {
     var width = window.innerWidth;
@@ -382,13 +382,13 @@ renderer.setAnimationLoop(() => {
 
     uniforms.time.value = t;
 
-    mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI / 6;
+    mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI / 9;
 
     uniforms.globalBloom.value = 1;
     renderer.setClearColor(0x000000);
     bloomComposer.render();
     uniforms.globalBloom.value = 0;
-    renderer.setClearColor(0x100510);
+    renderer.setClearColor(0x201020);
     finalComposer.render();
 
     //renderer.render(scene, camera);
@@ -412,16 +412,18 @@ function instanceItem(instanceMesh, index, totalIndex, state) {
             let posLength = { value: 1 };
 
             let attrs = item.mesh.geometry.attributes;
+            let itemDelay = 0.5;
 
-            let tween = gsap.timeline({ delay: 3 + item.totalIndex * 0.2 })
+            let tween = gsap.timeline({ delay: 3 + item.totalIndex * itemDelay })
                 .to(posLength, {
-                    value: 2, duration: 5, ease: "elastic.out(1.5, 1)",
+                    value: 2, duration: 5, ease: "expo.inOut",
                     onUpdate: function () {
                         item.dummy.copy(item.initState);
 
                         item.dummy.position.multiplyScalar(posLength.value);
-
-                        let rot = Math.PI * (6 / 3) * ((posLength.value - 1) / 1);
+                        
+                        let posRatio = (posLength.value - 1);
+                        let rot = Math.PI * (6 / 3) * Math.pow(posRatio, 3);
                         item.dummy.rotation.y = rot;
 
                         item.dummy.updateMatrix();
@@ -446,7 +448,7 @@ function instanceItem(instanceMesh, index, totalIndex, state) {
                     }
                 })
                 .to(posLength, {
-                    value: 1, duration: 5, delay: 5 + 6.6 - item.totalIndex * 0.2,
+                    value: 1, duration: 5, delay: 5 + (33 - item.totalIndex) * itemDelay,
                     onUpdate: function () {
                         item.dummy.copy(item.initState);
                         item.dummy.position.multiplyScalar(posLength.value);
