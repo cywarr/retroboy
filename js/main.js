@@ -12,13 +12,18 @@ import { FXAAShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/
 
 let scene = new THREE.Scene();
 let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 100);
-camera.position.set(3.5, 3.5, 7).setLength(15);
+let cameraDistance = 15;
+camera.position.set(3.5, 3.5, 7).setLength(cameraDistance);
 let renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
 
 let controls = new OrbitControls(camera, renderer.domElement);
+controls.minDistance = cameraDistance;
+controls.maxDistance = cameraDistance;
+controls.enableDamping = true;
+controls.enablePan = false;
 
 let light = new THREE.DirectionalLight(0xffffff, 0.75);
 light.position.set(10, 10, 0);
@@ -378,11 +383,15 @@ let clock = new THREE.Clock();
 
 renderer.setAnimationLoop(() => {
 
+    controls.update();
+
     let t = clock.getElapsedTime();
 
     uniforms.time.value = t;
 
     mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI / 9;
+
+
 
     uniforms.globalBloom.value = 1;
     renderer.setClearColor(0x000000);
@@ -423,7 +432,7 @@ function instanceItem(instanceMesh, index, totalIndex, state) {
                         item.dummy.position.multiplyScalar(posLength.value);
                         
                         let posRatio = (posLength.value - 1);
-                        let rot = Math.PI * (6 / 3) * Math.pow(posRatio, 3);
+                        let rot = Math.PI * 2 * Math.pow(posRatio, 3);
                         item.dummy.rotation.y = rot;
 
                         item.dummy.updateMatrix();
