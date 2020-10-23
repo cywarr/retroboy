@@ -35,7 +35,7 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.75))
 
 //scene.add(new THREE.GridHelper(2, 2));
 
-let mainContainer = new THREE.Object3D();
+let mainContainer = new THREE.Group();
 scene.add(mainContainer);
 
 let logo = textureLogo();
@@ -293,6 +293,15 @@ gOct.setAttribute("drawUvShift", new THREE.InstancedBufferAttribute(new Float32A
 ]), 2))
 // ==============================================================================================
 
+// background stuff =============================================================================
+
+let backStuff = new THREE.Group();
+
+let backGeom = new THREE.PlaneBufferGeometry();
+let backMaterial = new THREE.MeshStandardMaterial();
+
+// ==============================================================================================
+
 // fxaa //////////////////////////////////////////////////////////////////////////////////////////
 let fxaaPass = new ShaderPass(FXAAShader);
 
@@ -389,9 +398,9 @@ renderer.setAnimationLoop(() => {
 
     uniforms.time.value = t;
 
-    mainContainer.rotation.y = Math.cos(-t * 0.0312 * Math.PI ) * Math.PI / 9;
+    mainContainer.rotation.y = Math.sin(-t * 0.0312 * Math.PI ) * Math.PI / 9;
 
-
+    backStuff.quaternion.copy(camera.quaternion);
 
     uniforms.globalBloom.value = 1;
     renderer.setClearColor(0x000000);
