@@ -10,6 +10,32 @@ import { UnrealBloomPass } from "https://cdn.jsdelivr.net/npm/three@0.121.1/exam
 import { CopyShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/shaders/CopyShader.js';
 import { FXAAShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/shaders/FXAAShader.js';
 
+let running = false;
+
+// soundcloud widget section
+let scw = document.getElementById("scWidget");
+console.log(scWidget);
+let widget = SC.Widget(scWidget);
+widget.bind(SC.Widget.Events.PLAY, () => {
+    veil.style.display = "none";
+    scWidget.style.display = "none";
+
+    mainSequence();
+    running = true;
+});
+////////////////////////////
+
+function mainSequence(){
+    if (running) return;
+    clock.start();
+    renderer.setAnimationLoop(mainLoop);
+
+    // run sequences
+    united.forEach(u => {
+        u.sequence();
+    });
+}
+
 let scene = new THREE.Scene();
 let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 1000);
 let cameraDistance = 15;
@@ -21,7 +47,7 @@ document.body.appendChild(renderer.domElement);
 let bgColor = 0x201020;
 
 let controls = new OrbitControls(camera, renderer.domElement);
-controls.minDistance = cameraDistance * 0.5;
+controls.minDistance = cameraDistance * 0.8;
 controls.maxDistance = cameraDistance;
 controls.enableDamping = true;
 controls.enablePan = false;
@@ -52,27 +78,27 @@ m.onBeforeCompile = shader => {
     shader.uniforms.time = uniforms.time;
     shader.uniforms.fontMap = uniforms.fontMap;
     shader.vertexShader = `
-  attribute vec3 IColor;
-  attribute vec3 center;
-  attribute float showWire;
-  attribute float glowIntensity;
-  attribute float emissionIntensity;
-  attribute float canDraw;
-  attribute float drawSide;
-  attribute vec2 drawUV;
-  attribute vec2 drawUvShift;
+attribute vec3 IColor;
+attribute vec3 center;
+attribute float showWire;
+attribute float glowIntensity;
+attribute float emissionIntensity;
+attribute float canDraw;
+attribute float drawSide;
+attribute vec2 drawUV;
+attribute vec2 drawUvShift;
 
-  varying vec3 vIColor;
-  varying vec3 vCenter;
-  varying float vShowWire;
-  varying float vGlowIntensity;
-  varying float vEmissionIntensity;
-  varying float vCanDraw;
-  varying float vDrawSide;
-  varying vec2 vDrawUV;
-  varying vec2 vDrawUvShift;
+varying vec3 vIColor;
+varying vec3 vCenter;
+varying float vShowWire;
+varying float vGlowIntensity;
+varying float vEmissionIntensity;
+varying float vCanDraw;
+varying float vDrawSide;
+varying vec2 vDrawUV;
+varying vec2 vDrawUvShift;
 
-  ${shader.vertexShader}
+${shader.vertexShader}
 `.replace(
         `#include <uv_vertex>`,
         `#include <uv_vertex>
@@ -90,21 +116,21 @@ m.onBeforeCompile = shader => {
     //console.log(shader.vertexShader);
 
     shader.fragmentShader = `
-  uniform float globalBloom;
-  uniform float time;
-  uniform sampler2D fontMap;
+uniform float globalBloom;
+uniform float time;
+uniform sampler2D fontMap;
 
-  varying vec3 vIColor;
-  varying vec3 vCenter;
-  varying float vShowWire;
-  varying float vGlowIntensity;
-  varying float vEmissionIntensity;
-  varying float vCanDraw;
-  varying float vDrawSide;
-  varying vec2 vDrawUV;
-  varying vec2 vDrawUvShift;
+varying vec3 vIColor;
+varying vec3 vCenter;
+varying float vShowWire;
+varying float vGlowIntensity;
+varying float vEmissionIntensity;
+varying float vCanDraw;
+varying float vDrawSide;
+varying vec2 vDrawUV;
+varying vec2 vDrawUvShift;
 
-  ${shader.fragmentShader}
+${shader.fragmentShader}
 `.replace(
         `#include <clipping_planes_pars_fragment>`,
         `#include <clipping_planes_pars_fragment>
@@ -305,7 +331,7 @@ let backGeom = new THREE.CylinderBufferGeometry(cr, cr, ch, 4, 10, true);
 backGeom.translate(0, ch * 0.5, 0);
 backGeom.rotateY(Math.PI * 0.25);
 backGeom.rotateX(Math.PI * -0.5);
-let backMat = new THREE.MeshBasicMaterial({color: 0x220011, side: THREE.BackSide});
+let backMat = new THREE.MeshBasicMaterial({color: 0x330022, side: THREE.BackSide});
 backMat.defines = {"USE_UV":""};
 backMat.onBeforeCompile = shader => {
     shader.uniforms.globalBloom = uniforms.globalBloom;
@@ -327,10 +353,11 @@ backMat.onBeforeCompile = shader => {
     `.replace(
         `vec4 diffuseColor = vec4( diffuse, opacity );`,
         `
-        vec2 gridUv = vUv * vec2(16., 25.);
+        vec2 gridUv = vUv * vec2(20., 25.);
         gridUv.y += time;
         float boxEdges = gridLine(vUv * vec2(0., 1.));
         float grid = gridLine(gridUv);
+        grid += gridLine(gridUv * vec2(0.,0.5));
         float finalGrid = boxEdges + grid;
 
         vec3 bgColorBloom = (globalBloom > 0.5) ? vec3(0) : bgColor;
@@ -380,19 +407,19 @@ var finalPass = new ShaderPass(
             bloomTexture: { value: bloomComposer.renderTarget2.texture }
         },
         vertexShader: `
-			varying vec2 vUv;
-			void main() {
-				vUv = uv;
-				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-			}
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            }
 `,
         fragmentShader: `
-			uniform sampler2D baseTexture;
-			uniform sampler2D bloomTexture;
-			varying vec2 vUv;
-			void main() {
-				gl_FragColor = ( texture2D( baseTexture, vUv ) + vec4( 1.0 ) * texture2D( bloomTexture, vUv ) );
-			}
+            uniform sampler2D baseTexture;
+            uniform sampler2D bloomTexture;
+            varying vec2 vUv;
+            void main() {
+                gl_FragColor = ( texture2D( baseTexture, vUv ) + vec4( 1.0 ) * texture2D( bloomTexture, vUv ) );
+            }
 `,
         defines: {}
     }),
@@ -425,24 +452,19 @@ window.onresize = function () {
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// run sequences
-//console.log(united);
-united.forEach(u => {
-    u.sequence();
-});
-
 // =============
-let clock = new THREE.Clock();
+let clock = new THREE.Clock(false);
 
-renderer.setAnimationLoop(() => {
+//renderer.setAnimationLoop(mainLoop);
 
+function mainLoop() {
     controls.update();
 
     let t = clock.getElapsedTime();
 
     uniforms.time.value = t;
 
-    mainContainer.rotation.y = Math.sin(-t * 0.0312 * Math.PI ) * Math.PI / 9;
+    mainContainer.rotation.y = Math.sin(-t * 0.0312 * Math.PI) * Math.PI / 9;
 
     backStuff.quaternion.copy(camera.quaternion);
     backMesh.position.z = camera.position.length() - cameraDistance * 2;
@@ -455,7 +477,8 @@ renderer.setAnimationLoop(() => {
     finalComposer.render();
 
     //renderer.render(scene, camera);
-});
+}
+
 
 // functions ====================================================================================
 

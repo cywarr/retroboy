@@ -7,21 +7,23 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link type="text/css" rel="stylesheet" href="css/main.css">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    
 </head>
 
 <body>
-    <!--div id="info">
-        <a href="https://olivierorandcompilations.bandcamp.com/track/robots" target="_blank">Olivier Orand - Robots</a>
-    </div-->
 
-    <!--div id="overlay">
-        <div>
-            <button id="startButton">0 %</button>
-        </div>
-    </div-->
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.5.1/dist/gsap.min.js"></script>
+    <script src="https://w.soundcloud.com/player/api.js"></script>
     <script type="module" src="js/main.js"></script>
 
+    <div id="veil" style="position:absolute;width:100%; height:100%; background-color:#201020;"></div>
+    <iframe id="scWidget" scrolling="no" frameborder="no" allow="autoplay"
+        src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/913794637&color=%23c300ff&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
+    
+    
+
+
+    
 </body>
 
 </html>
