@@ -21,7 +21,7 @@ document.body.appendChild(renderer.domElement);
 let bgColor = 0x201020;
 
 let controls = new OrbitControls(camera, renderer.domElement);
-controls.minDistance = cameraDistance;
+controls.minDistance = cameraDistance * 0.5;
 controls.maxDistance = cameraDistance;
 controls.enableDamping = true;
 controls.enablePan = false;
@@ -315,22 +315,30 @@ backMat.onBeforeCompile = shader => {
         uniform float globalBloom;
         uniform float time;
         uniform vec3 bgColor;
+
+        float gridLine(vec2 uv){
+            // http://madebyevan.com/shaders/grid/ ===============
+            vec2 grid = abs(fract(uv - 0.5) - 0.5) / fwidth(uv);//
+            float line = min(grid.x, grid.y);                   //
+            return 1.0 - min(line, 1.0);                        //
+            // ===================================================
+        }
         ${shader.fragmentShader}
     `.replace(
         `vec4 diffuseColor = vec4( diffuse, opacity );`,
         `
-        vec2 gridUv = vUv * vec2(12., 25.);
+        vec2 gridUv = vUv * vec2(16., 25.);
+        gridUv.y += time;
+        float boxEdges = gridLine(vUv * vec2(0., 1.));
+        float grid = gridLine(gridUv);
+        float finalGrid = boxEdges + grid;
+
         vec3 bgColorBloom = (globalBloom > 0.5) ? vec3(0) : bgColor;
-        // http://madebyevan.com/shaders/grid/ =======================
-        vec2 grid = abs(fract(gridUv - 0.5) - 0.5) / fwidth(gridUv);//
-        float line = min(grid.x, grid.y);                           //
-        float finalGrid = 1.0 - min(line, 1.0);                     //
-        // ===========================================================
         vec3 col = mix(bgColorBloom, diffuse, finalGrid);
         vec4 diffuseColor = vec4( col, opacity );
         `
     );
-    console.log(shader.fragmentShader);
+    //console.log(shader.fragmentShader);
 }
 let backMesh = new THREE.Mesh(backGeom, backMat);
 backMesh.position.z = -cameraDistance;
@@ -437,6 +445,7 @@ renderer.setAnimationLoop(() => {
     mainContainer.rotation.y = Math.sin(-t * 0.0312 * Math.PI ) * Math.PI / 9;
 
     backStuff.quaternion.copy(camera.quaternion);
+    backMesh.position.z = camera.position.length() - cameraDistance * 2;
 
     uniforms.globalBloom.value = 1;
     renderer.setClearColor(0x000000);
