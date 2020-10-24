@@ -11,13 +11,14 @@ import { CopyShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/
 import { FXAAShader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/shaders/FXAAShader.js';
 
 let scene = new THREE.Scene();
-let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 100);
+let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 200);
 let cameraDistance = 15;
 camera.position.set(3.5, 3.5, 7).setLength(cameraDistance);
 let renderer = new THREE.WebGLRenderer();
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
+let bgColor = 0x201020;
 
 let controls = new OrbitControls(camera, renderer.domElement);
 controls.minDistance = cameraDistance;
@@ -296,9 +297,43 @@ gOct.setAttribute("drawUvShift", new THREE.InstancedBufferAttribute(new Float32A
 // background stuff =============================================================================
 
 let backStuff = new THREE.Group();
+scene.add(backStuff);
 
-let backGeom = new THREE.PlaneBufferGeometry();
-let backMaterial = new THREE.MeshStandardMaterial();
+let cr = Math.sqrt(2 * Math.pow(cameraDistance * Math.tan(THREE.Math.degToRad(camera.fov * 0.5)), 2)) * 0.995;
+let ch = 100;
+let backGeom = new THREE.CylinderBufferGeometry(cr, cr, ch, 4, 10, true);
+backGeom.translate(0, ch * 0.5, 0);
+backGeom.rotateY(Math.PI * 0.25);
+backGeom.rotateX(Math.PI * -0.5);
+let backMat = new THREE.MeshBasicMaterial({color: 0x220011, side: THREE.BackSide});
+backMat.defines = {"USE_UV":""};
+backMat.onBeforeCompile = shader => {
+    shader.uniforms.globalBloom = uniforms.globalBloom;
+    shader.uniforms.time = uniforms.time;
+    shader.uniforms.bgColor = {value: new THREE.Color(bgColor)};
+    shader.fragmentShader = `
+        uniform float globalBloom;
+        uniform float time;
+        uniform vec3 bgColor;
+        ${shader.fragmentShader}
+    `.replace(
+        `vec4 diffuseColor = vec4( diffuse, opacity );`,
+        `
+        vec2 gridUv = vUv * vec2(12., ${Math.round(ch * 0.25)}.);
+        vec3 bgColorBloom = (globalBloom > 0.5) ? vec3(0) : bgColor;
+        // http://madebyevan.com/shaders/grid/
+        vec2 grid = abs(fract(gridUv - 0.5) - 0.5) / fwidth(gridUv);
+        float line = min(grid.x, grid.y);
+        float finalGrid = 1.0 - min(line, 1.0);
+        // ===================================
+        vec3 col = mix(bgColorBloom, diffuse, finalGrid);
+        vec4 diffuseColor = vec4( col, opacity );
+        `
+    );
+    console.log(shader.fragmentShader);
+}
+let backMesh = new THREE.Mesh(backGeom, backMat);
+backStuff.add(backMesh);
 
 // ==============================================================================================
 
@@ -406,7 +441,7 @@ renderer.setAnimationLoop(() => {
     renderer.setClearColor(0x000000);
     bloomComposer.render();
     uniforms.globalBloom.value = 0;
-    renderer.setClearColor(0x201020);
+    renderer.setClearColor(bgColor);
     finalComposer.render();
 
     //renderer.render(scene, camera);
